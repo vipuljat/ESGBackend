@@ -1,20 +1,19 @@
 import datetime
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, HttpUrl
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from bson import ObjectId
 from typing import Union
 
-
+# ESG Question Models
 class ESGQuestion(BaseModel):
     question_id: str  # e.g., "A0/1", "C1_1"
     response: Any  # Flexible to handle text, tables, nested objects
 
 class ESGQuestionUpdate(BaseModel):
     response: Any
-    
-    
-    
+
+# User Models
 class User(BaseModel):
     id: Optional[str] = Field(None, alias="_id")  # Make id optional
     password: str
@@ -27,10 +26,7 @@ class User(BaseModel):
 class UserUpdate(BaseModel):
     password: Optional[str] = None
     email: Optional[EmailStr] = None
-    
-    
-    #Plant Schema 
-    
+
 # Helper class for PyObjectId
 class PyObjectId(ObjectId):
     @classmethod
@@ -38,17 +34,19 @@ class PyObjectId(ObjectId):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v):
+    def validate(cls, v, values=None):
         if not ObjectId.is_valid(v):
-            raise ValueError("Invalid ObjectId")
+            raise ValueError(f"Invalid ObjectId: {v}")
         return ObjectId(v)
 
     @classmethod
-    def __get_pydantic_json_schema__(cls, core_schema, handler):
-        schema = handler(core_schema)
-        schema.update(type="string")
-        return schema
-
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        from pydantic_core import core_schema
+        return core_schema.union_schema([
+            core_schema.is_instance_schema(ObjectId),
+            core_schema.str_schema(),
+        ], custom_error_type='invalid_objectid', custom_error_message='Invalid ObjectId')
+        
 # Question mapping
 class QuestionMapping(BaseModel):
     question_id: str
@@ -70,12 +68,12 @@ class Coordinates(BaseModel):
 
 # Plant location
 class Location(BaseModel):
-    street: str
-    city: str
-    state: str
-    country: str
-    pincode: str
-    coordinates: Optional[Coordinates] = None
+    street: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
+    pincode: Optional[str] = None
+    
 
 # Products/Services
 class ProductService(BaseModel):
@@ -120,7 +118,7 @@ class GeneralDisclosures(BaseModel):
 # Policy details
 class Policy(BaseModel):
     exists: bool
-    board_approved: bool
+    board_approved: Optional[bool] = None  # Made optional
     web_link: str
 
 # Sustainability commitment
@@ -140,7 +138,7 @@ class SustainabilityOversightDetails(BaseModel):
     meetings_per_year: int
 
 class SustainabilityOversight(BaseModel):
-    committee_exists: bool
+    committee_exists: Optional[bool] = None
     details: Optional[SustainabilityOversightDetails] = None
 
 # Management and Process Disclosures
@@ -203,10 +201,15 @@ class EPRStatus(BaseModel):
     status: str
     in_line_with_plan: bool
 
+# Sustainable sourcing
+class SustainableSourcing(BaseModel):
+    percentage_sourced_sustainably: float
+    measures_taken: List[str]
+
 # Principle 2: Sustainable Products
 class Principle2(BaseModel):
     rd_capex_investments: Optional[Dict[str, RDCapex]] = None
-    sustainable_sourcing: Optional[Dict[str, Union[bool, float]]] = None
+    sustainable_sourcing: Optional[SustainableSourcing] = None
     waste_reclamation_processes: Optional[WasteReclamation] = None
     epr_applicable: Optional[EPRStatus] = None
 
@@ -250,11 +253,15 @@ class HealthSafetyComplaints(BaseModel):
     pending: int
     remarks: str
 
+# Accessibility measures
+class AccessibilityMeasures(BaseModel):
+    measures: List[str]
+
 # Principle 3: Employee Well-being
 class Principle3(BaseModel):
     employee_wellbeing: Optional[EmployeeWellbeing] = None
     retirement_benefits: Optional[Dict[str, RetirementBenefitsFY]] = None
-    accessibility: Optional[Dict[str, bool]] = None
+    accessibility: Optional[AccessibilityMeasures] = None
     equal_opportunity_policy: Optional[Policy] = None
     grievance_mechanisms: Optional[Dict[str, GrievanceMechanism]] = None
     safety_incidents: Optional[Dict[str, SafetyIncidents]] = None
@@ -268,9 +275,14 @@ class StakeholderEngagement(BaseModel):
     frequency: str
     purpose: str
 
+# Material issues identified
+class MaterialIssues(BaseModel):
+    issues: List[str]
+
 # Principle 4: Stakeholder Engagement
 class Principle4(BaseModel):
     stakeholder_engagement: Optional[List[StakeholderEngagement]] = None
+    material_issues_identified: Optional[MaterialIssues] = None
 
 # Human rights training
 class HumanRightsTraining(BaseModel):
@@ -290,11 +302,16 @@ class HumanRightsGrievance(BaseModel):
     pending: int
     remarks: str
 
+# Human rights complaints
+class HumanRightsComplaints(BaseModel):
+    current_fy: HumanRightsGrievance
+    previous_fy: HumanRightsGrievance
+
 # Principle 5: Human Rights
 class Principle5(BaseModel):
     human_rights_training: Optional[Dict[str, Dict[str, HumanRightsTraining]]] = None
     minimum_wages: Optional[Dict[str, Dict[str, MinimumWages]]] = None
-    human_rights_grievances: Optional[Dict[str, Dict[str, HumanRightsGrievance]]] = None
+    human_rights_grievances: Optional[HumanRightsComplaints] = None
     human_rights_policy: Optional[Policy] = None
 
 # Energy consumption
@@ -378,8 +395,8 @@ class ZeroLiquidDischarge(BaseModel):
 
 # Environmental compliance
 class EnvironmentalCompliance(BaseModel):
-    compliant: bool
-    non_compliances: List[Any]
+    non_compliances: int
+    details: str
 
 # Principle 6: Environment
 class Principle6(BaseModel):
@@ -395,9 +412,14 @@ class TradeAssociation(BaseModel):
     name: str
     reach: str
 
+# Anti-competitive conduct
+class AntiCompetitiveConduct(BaseModel):
+    instances: int
+
 # Principle 7: Public Policy
 class Principle7(BaseModel):
     trade_associations: Optional[List[TradeAssociation]] = None
+    anti_competitive_conduct: Optional[Dict[str, AntiCompetitiveConduct]] = None
 
 # Social impact assessment
 class SocialImpactAssessment(BaseModel):
@@ -413,10 +435,17 @@ class CommunityGrievanceMechanism(BaseModel):
     exists: bool
     details: str
 
+# CSR project
+class CSRProject(BaseModel):
+    name: str
+    investment_inr: float
+    beneficiaries: int
+
 # Principle 8: Inclusive Growth
 class Principle8(BaseModel):
     social_impact_assessments: Optional[List[SocialImpactAssessment]] = None
     community_grievance_mechanisms: Optional[CommunityGrievanceMechanism] = None
+    csr_projects: Optional[List[CSRProject]] = None
 
 # Consumer complaints
 class ConsumerComplaint(BaseModel):
@@ -424,10 +453,15 @@ class ConsumerComplaint(BaseModel):
     pending: int
     remarks: str
 
+# Cyber security measures
+class CyberSecurityMeasures(BaseModel):
+    measures: List[str]
+
 # Principle 9: Consumer Responsibility
 class Principle9(BaseModel):
     consumer_complaints: Optional[Dict[str, Dict[str, ConsumerComplaint]]] = None
     cyber_security_policy: Optional[Policy] = None
+    cyber_security_measures: Optional[CyberSecurityMeasures] = None
 
 # Principle-wise Performance
 class PrincipleWisePerformance(BaseModel):
@@ -476,3 +510,111 @@ class Plant(BaseModel):
             ObjectId: str,
             datetime: lambda v: v.isoformat()
         }
+
+# Company Model
+class ContactPerson(BaseModel):
+    name: str
+    telephone: str
+    email: EmailStr
+
+class HoldingSubsidiaryAssociate(BaseModel):
+    name: str
+    type: str  # e.g., "Subsidiary", "Holding", "Associate"
+    percentageSharesHeld: float
+    participatesInBRSR: bool
+
+class CSRDetails(BaseModel):
+    applicable: bool
+    turnover_inr: float
+    net_worth_inr: float
+
+class ComplaintsGrievances(BaseModel):
+    current_fy: Dict[str, Union[int, str]]  # filed, pending, remarks
+    previous_fy: Dict[str, Union[int, str]]
+
+class TransparencyCompliances(BaseModel):
+    complaints_grievances: ComplaintsGrievances
+    compliance_with_disclosures: bool
+
+class GeneralDisclosuresCompany(BaseModel):  # Renamed to avoid conflict
+    csr_details: CSRDetails
+    transparency_compliances: TransparencyCompliances
+
+class PolicyCompany(BaseModel):  # Renamed to avoid conflict
+    exists: bool
+    board_approved: Optional[bool] = None  # Made optional
+    web_link: HttpUrl
+
+class SustainabilityCommitmentCompany(BaseModel):  # Renamed to avoid conflict
+    target: str
+    timeline: str
+
+class PerformanceAgainstTargetCompany(BaseModel):  # Renamed to avoid conflict
+    achieved: bool
+    reason: str
+
+class SustainabilityOversightCompany(BaseModel):  # Renamed to avoid conflict
+    committee_exists: bool
+    details: Dict[str, Union[str, int]]  # name, chairperson, meetings_per_year
+
+class ManagementAndProcessCompany(BaseModel):  # Renamed to avoid conflict
+    policies: Dict[str, PolicyCompany]  # principle_1 to principle_9
+    policies_translated_to_procedures: bool
+    policies_extend_to_value_chain: bool
+    certifications: List[str]
+    sustainability_commitments: Dict[str, SustainabilityCommitmentCompany]
+    performance_against_targets: Dict[str, PerformanceAgainstTargetCompany]
+    sustainability_oversight: SustainabilityOversightCompany
+
+class AntiCorruptionPolicy(BaseModel):
+    exists: bool
+    web_link: HttpUrl
+
+class Principle1Company(BaseModel):  # Renamed to avoid conflict
+    anti_corruption_policy: AntiCorruptionPolicy
+
+class Principle7Company(BaseModel):  # Renamed to avoid conflict
+    trade_association_memberships: List[Dict[str, Union[str, List[str]]]]
+
+class PrincipleWisePerformanceCompany(BaseModel):  # Renamed to avoid conflict
+    principle_1: Principle1Company
+    principle_2: Dict[str, Any] = {}
+    principle_3: Dict[str, Any] = {}
+    principle_4: Dict[str, Any] = {}
+    principle_5: Dict[str, Any] = {}
+    principle_6: Dict[str, Any] = {}
+    principle_7: Principle7Company
+    principle_8: Dict[str, Any] = {}
+    principle_9: Dict[str, Any] = {}
+
+class UpdateLogCompany(BaseModel):  # Renamed to avoid conflict
+    question_id: str
+    updated_by: str
+    updated_at: datetime
+    schema_path: str
+
+class Company(BaseModel):
+    company_id: str
+    name: str
+    corporateIdentityNumber: str
+    yearOfIncorporation: int
+    registeredOfficeAddress: str
+    corporateAddress: str
+    email: EmailStr
+    telephone: str
+    website: HttpUrl
+    financialYear: str
+    stockExchanges: List[str]
+    paidUpCapital: float
+    contactPerson: ContactPerson
+    reportingBoundary: str
+    holdingSubsidiaryAssociateCompanies: List[HoldingSubsidiaryAssociate]
+    plants: List[str]  # List of plant_id references
+    general_disclosures: GeneralDisclosuresCompany
+    management_and_process: ManagementAndProcessCompany
+    principle_wise_performance: PrincipleWisePerformanceCompany
+    data_ownership: Dict[str, List[str]]
+    updates: List[UpdateLogCompany]
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    _id: Optional[ObjectId] = None  # MongoDB ObjectId

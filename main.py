@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes.questionRoutes import router as plant_router
+from routes.plantRoutes import router as plant_router
 from routes.loginRoute import router as users_router
+from routes.companyRoutes import company_router as company_router
 import logging
 
 # Configure logging
@@ -15,6 +16,9 @@ app.include_router(plant_router)
 
 # Include the users routes (for login)
 app.include_router(users_router)
+
+# Include the company routes
+app.include_router(company_router)
 
 app.add_middleware(
     CORSMiddleware,
